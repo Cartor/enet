@@ -4877,22 +4877,32 @@ extern "C" {
             tv->tv_nsec = t.QuadPart % 1000000 * 1000;
             return (0);
         }
-    #elif __APPLE__ && __MAC_OS_X_VERSION_MIN_REQUIRED < 101200
-        #define CLOCK_MONOTONIC 0
+    //#elif __APPLE__ && __MAC_OS_X_VERSION_MIN_REQUIRED < 101200
+    #elif __APPLE__
+        #include <TargetConditionals.h>
+        #if (TARGET_OS_IPHONE && __IPHONE_OS_VERSION_MIN_REQUIRED < 100000) 
+            #define HAVE_CLOCK_GETTIME 1
+        #elif(TARGET_OS_IPHONE == 0 && __MAC_OS_X_VERSION_MIN_REQUIRED < 101200) 
+            #define HAVE_CLOCK_GETTIME 1
+        #endif
 
-        int clock_gettime(int X, struct timespec *ts) {
-            clock_serv_t cclock;
-            mach_timespec_t mts;
+        #if defined(HAVE_CLOCK_GETTIME)
+            #define CLOCK_MONOTONIC 0
 
-            host_get_clock_service(mach_host_self(), SYSTEM_CLOCK, &cclock);
-            clock_get_time(cclock, &mts);
-            mach_port_deallocate(mach_task_self(), cclock);
+            int clock_gettime(int X, struct timespec *ts) {
+                clock_serv_t cclock;
+                mach_timespec_t mts;
 
-            ts->tv_sec = mts.tv_sec;
-            ts->tv_nsec = mts.tv_nsec;
+                host_get_clock_service(mach_host_self(), SYSTEM_CLOCK, &cclock);
+                clock_get_time(cclock, &mts);
+                mach_port_deallocate(mach_task_self(), cclock);
 
-            return 0;
-        }
+                ts->tv_sec = mts.tv_sec;
+                ts->tv_nsec = mts.tv_nsec;
+
+                return 0;
+            }
+        #endif
     #endif
 
     enet_uint32 enet_time_get() {
